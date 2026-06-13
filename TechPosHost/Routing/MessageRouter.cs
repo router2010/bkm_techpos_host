@@ -7,10 +7,10 @@ public class MessageRouter
 {
     private readonly TerminalRepository _terminalRepository;
     private readonly TransactionRepository _transactionRepository;
-    public MessageRouter()
+    public MessageRouter(TerminalRepository terminalRepository, TransactionRepository transactionRepository)
     {
-        _terminalRepository = new TerminalRepository();
-        _transactionRepository = new TransactionRepository();
+        _terminalRepository = terminalRepository;
+        _transactionRepository = transactionRepository;
     }
     public IsoMessage Route(IsoMessage request)
     {

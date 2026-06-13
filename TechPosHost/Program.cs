@@ -1,9 +1,31 @@
-﻿using TechPosHost.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using TechPosHost.Data;
 using TechPosHost.Network;
+using TechPosHost.Repository;
+using TechPosHost.Routing;
 
-TestDbConnection.Check();
+var builder = Host.CreateApplicationBuilder(args);
 
-var server = new TcpServer(23232);
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<TerminalRepository>();
+builder.Services.AddScoped<TransactionRepository>();
+builder.Services.AddScoped<MessageRouter>();
+
+var host = builder.Build();
+
+using var scope = host.Services.CreateScope();
+
+var router =
+    scope.ServiceProvider.GetRequiredService<MessageRouter>();
+
+var server =
+    new TcpServer(23232, router);
 
 Console.WriteLine("TechPosHost Started");
 

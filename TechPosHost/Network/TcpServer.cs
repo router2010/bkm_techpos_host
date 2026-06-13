@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics.Metrics;
+using System.Net;
 using System.Net.Sockets;
 using TechPosHost.Iso8583;
 using TechPosHost.Routing;
@@ -12,12 +13,12 @@ public class TcpServer
     private readonly IsoBuilder _builder;
     private readonly MessageRouter _router;
 
-    public TcpServer(int port)
+    public TcpServer(int port, MessageRouter router)
     {
         _listener = new TcpListener(IPAddress.Any, port);
         _parser = new IsoParser();
         _builder = new IsoBuilder();
-        _router = new MessageRouter();
+        _router = router;
     }
 
     public async Task StartAsync()

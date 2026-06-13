@@ -1,0 +1,18 @@
+﻿namespace TechPosHost.Models;
+
+public class TransactionLog
+{
+    public DateTime CreatedAt { get; set; }
+
+    public string MTI { get; set; } = "";
+
+    public string? ProcessingCode { get; set; }
+
+    public string? Amount { get; set; }
+
+    public string? Stan { get; set; }
+
+    public string? TerminalId { get; set; }
+
+    public string? ResponseCode { get; set; }
+}

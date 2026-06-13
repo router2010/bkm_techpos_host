@@ -21,8 +21,13 @@ public class MessageRouter
 
             case "0200":
                 return Build0210(request);
+
             case "0420":
                 return Build0430(request);
+
+            case "0820":
+                return Build0830(request);
+
             default:
                 return BuildError();
         }
@@ -113,7 +118,23 @@ public class MessageRouter
 
         return response;
     }
+    private IsoMessage Build0830(IsoMessage request)
+    {
+        var response = new IsoMessage();
 
+        response.MTI = "0830";
+
+        if (request.HasField(11))
+        {
+            response.SetField(
+                11,
+                request.GetField(11)!);
+        }
+
+        response.SetField(39, "00");
+
+        return response;
+    }
     private IsoMessage BuildError()
     {
         return new IsoMessage

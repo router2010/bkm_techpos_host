@@ -17,4 +17,5 @@ public class Transaction
     public string? TerminalId { get; set; }
 
     public string? ResponseCode { get; set; }
+    public bool IsReversed { get; set; }
 }

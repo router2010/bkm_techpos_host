@@ -44,4 +44,30 @@ public class TransactionRepository
 
         return db.Transactions.Count();
     }
+    public bool Reverse(string stan)
+    {
+        var options =
+            new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer(_connectionString)
+            .Options;
+
+        using var db = new AppDbContext(options);
+
+        var trx = db.Transactions
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault(x =>
+                x.Stan == stan &&
+                !x.IsReversed);
+
+        if (trx == null)
+        {
+            return false;
+        }
+
+        trx.IsReversed = true;
+
+        db.SaveChanges();
+
+        return true;
+    }
 }

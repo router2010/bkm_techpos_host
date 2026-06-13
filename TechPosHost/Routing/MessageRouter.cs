@@ -21,7 +21,8 @@ public class MessageRouter
 
             case "0200":
                 return Build0210(request);
-
+            case "0420":
+                return Build0430(request);
             default:
                 return BuildError();
         }
@@ -78,6 +79,37 @@ public class MessageRouter
             });
         Console.WriteLine($"Transaction Count : {_transactionRepository.Count()}");
         response.SetField(39, "00");
+
+        return response;
+    }
+    private IsoMessage Build0430(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0430";
+
+        if (request.HasField(11))
+        {
+            response.SetField(
+                11,
+                request.GetField(11)!);
+        }
+
+        if (!request.HasField(11))
+        {
+            response.SetField(39, "12");
+            return response;
+        }
+
+        string stan =
+            request.GetField(11)!;
+
+        bool reversed =
+            _transactionRepository.Reverse(stan);
+
+        response.SetField(
+            39,
+            reversed ? "00" : "25");
 
         return response;
     }

@@ -21,4 +21,24 @@ public class IsoBuilder
 
         return Encoding.ASCII.GetBytes(sb.ToString());
     }
+
+    public string BuildBitmapMessage(IsoMessage message)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine(message.MTI);
+
+        var bitmap =
+            BitmapHelper.BuildBitmap(
+                message.Fields.Keys);
+
+        sb.AppendLine(bitmap);
+
+        foreach (var field in message.Fields.OrderBy(x => x.Key))
+        {
+            sb.AppendLine(field.Value);
+        }
+
+        return sb.ToString();
+    }
 }

@@ -2,13 +2,18 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using TechPosHost.Data;
-using TechPosHost.Iso8583;
 using TechPosHost.Network;
 using TechPosHost.Repository;
 using TechPosHost.Routing;
 
+
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
@@ -24,8 +29,9 @@ using var scope = host.Services.CreateScope();
 
 var router =
     scope.ServiceProvider.GetRequiredService<MessageRouter>();
-Console.WriteLine(BitmapHelper.BuildBitmap(new[] { 3, 4, 11, 41 }));
-var server = new TcpServer(23232, router);
+
+var server =
+    new TcpServer(23232, router);
 
 Console.WriteLine("TechPosHost Started");
 

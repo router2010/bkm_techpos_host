@@ -71,6 +71,14 @@ public class MessageRouter
             return response;
         }
 
+        string rrn =
+            DateTime.Now.ToString("yyMMddHHmmss");
+
+        string authCode =
+            Random.Shared.Next(
+                100000,
+                999999).ToString();
+
         _transactionRepository.Add(
             new TransactionLog
             {
@@ -80,9 +88,18 @@ public class MessageRouter
                 Amount = request.GetField(4),
                 Stan = request.GetField(11),
                 TerminalId = request.GetField(41),
-                ResponseCode = "00"
+                ResponseCode = "00",
+                Rrn = rrn,
+                AuthCode = authCode
             });
-        Console.WriteLine($"Transaction Count : {_transactionRepository.Count()}");
+
+        Console.WriteLine(
+            $"Transaction Count : {_transactionRepository.Count()}");
+
+        response.SetField(37, rrn);
+
+        response.SetField(38, authCode);
+
         response.SetField(39, "00");
 
         return response;

@@ -23,7 +23,9 @@ public class TransactionRepository
                 Amount = log.Amount,
                 Stan = log.Stan,
                 TerminalId = log.TerminalId,
-                ResponseCode = log.ResponseCode
+                ResponseCode = log.ResponseCode,
+                Rrn = log.Rrn,
+                AuthCode = log.AuthCode
             });
 
         _db.SaveChanges();

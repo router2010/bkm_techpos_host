@@ -53,4 +53,10 @@ public class TransactionRepository
 
         return true;
     }
+    public decimal SettlementAmount()
+    {
+        return _db.Transactions
+            .Where(x => !x.IsReversed)
+            .Sum(x => decimal.Parse(x.Amount ?? "0"));
+    }
 }

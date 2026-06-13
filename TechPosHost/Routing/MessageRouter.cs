@@ -24,6 +24,8 @@ public class MessageRouter
 
             case "0420":
                 return Build0430(request);
+            case "0500":
+                return Build0510(request);
 
             case "0820":
                 return Build0830(request);
@@ -132,6 +134,30 @@ public class MessageRouter
         response.SetField(
             39,
             reversed ? "00" : "25");
+
+        return response;
+    }
+    private IsoMessage Build0510(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0510";
+
+        if (request.HasField(11))
+        {
+            response.SetField(
+                11,
+                request.GetField(11)!);
+        }
+
+        int transactionCount =
+            _transactionRepository.SettlementCount();
+
+        response.SetField(39, "00");
+
+        response.SetField(
+            62,
+            transactionCount.ToString());
 
         return response;
     }

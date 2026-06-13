@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TechPosHost.Data;
+using TechPosHost.Iso8583;
 using TechPosHost.Network;
 using TechPosHost.Repository;
 using TechPosHost.Routing;
@@ -23,9 +24,8 @@ using var scope = host.Services.CreateScope();
 
 var router =
     scope.ServiceProvider.GetRequiredService<MessageRouter>();
-
-var server =
-    new TcpServer(23232, router);
+Console.WriteLine(BitmapHelper.BuildBitmap(new[] { 3, 4, 11, 41 }));
+var server = new TcpServer(23232, router);
 
 Console.WriteLine("TechPosHost Started");
 

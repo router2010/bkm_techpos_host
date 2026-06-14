@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using TechPosHost.Iso8583;
+using TechPosHost.Repository;
 using TechPosHost.Routing;
 
 namespace TechPosHost.Network;
@@ -12,13 +14,18 @@ public class TcpServer
     private readonly IsoParser _parser;
     private readonly IsoBuilder _builder;
     private readonly MessageRouter _router;
+    private readonly IsoLogRepository _isoLogRepository;
 
-    public TcpServer(int port, MessageRouter router)
+    public TcpServer(
+        int port,
+        MessageRouter router,
+        IsoLogRepository isoLogRepository)
     {
         _listener = new TcpListener(IPAddress.Any, port);
         _parser = new IsoParser();
         _builder = new IsoBuilder();
         _router = router;
+        _isoLogRepository = isoLogRepository;
     }
 
     public async Task StartAsync()
@@ -48,7 +55,11 @@ public class TcpServer
 
             byte[] data = buffer[..read];
 
-            IsoMessage message = _parser.Parse(data);
+            string requestText =
+                Encoding.ASCII.GetString(data);
+
+            IsoMessage message =
+                _parser.Parse(data);
 
             Console.WriteLine($"MTI : {message.MTI}");
 
@@ -64,8 +75,20 @@ public class TcpServer
             if (message.HasField(41))
                 Console.WriteLine($"F41 : {message.GetField(41)}");
 
-            IsoMessage responseMessage = _router.Route(message);
-            byte[] response = _builder.Build(responseMessage);
+            IsoMessage responseMessage =
+                _router.Route(message);
+
+            byte[] response =
+                _builder.Build(responseMessage);
+
+            string responseText =
+                Encoding.ASCII.GetString(response);
+
+            _isoLogRepository.Add(
+                requestText,
+                responseText,
+                message.MTI,
+                message.GetField(41));
 
             await stream.WriteAsync(response);
         }

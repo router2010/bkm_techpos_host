@@ -7,10 +7,13 @@ public class MessageRouter
 {
     private readonly TerminalRepository _terminalRepository;
     private readonly TransactionRepository _transactionRepository;
-    public MessageRouter(TerminalRepository terminalRepository, TransactionRepository transactionRepository)
+    private readonly CardRepository _cardRepository;
+    public MessageRouter(TerminalRepository terminalRepository, TransactionRepository transactionRepository,
+    CardRepository cardRepository)
     {
         _terminalRepository = terminalRepository;
         _transactionRepository = transactionRepository;
+        _cardRepository = cardRepository;
     }
     public IsoMessage Route(IsoMessage request)
     {
@@ -29,6 +32,8 @@ public class MessageRouter
 
             case "0820":
                 return Build0830(request);
+            case "0600":
+                return Build0610(request);
 
             default:
                 return BuildError();
@@ -44,7 +49,6 @@ public class MessageRouter
 
         return response;
     }
-
     private IsoMessage Build0210(IsoMessage request)
     {
         var response = new IsoMessage();
@@ -73,6 +77,67 @@ public class MessageRouter
             return response;
         }
 
+        string stan =
+            request.GetField(11)!;
+
+        Console.WriteLine($"CHECK STAN = [{stan}]");
+
+        bool exists =
+            _transactionRepository.ExistsByStan(stan);
+
+        Console.WriteLine($"EXISTS = {exists}");
+
+        if (exists)
+        {
+            response.SetField(39, "94");
+            return response;
+        }
+
+        if (!request.HasField(2))
+        {
+            response.SetField(39, "14");
+            return response;
+        }
+
+        string pan =
+            request.GetField(2)!;
+
+        var card =
+            _cardRepository.Get(pan);
+
+        if (card == null)
+        {
+            response.SetField(39, "14");
+            return response;
+        }
+
+        if (!card.IsActive)
+        {
+            response.SetField(39, "62");
+            return response;
+        }
+
+        decimal amount =
+            decimal.Parse(
+                request.GetField(4) ?? "0");
+
+        if (card.Balance < amount)
+        {
+            response.SetField(39, "51");
+            return response;
+        }
+
+        bool debitResult =
+            _cardRepository.Debit(
+                pan,
+                amount);
+
+        if (!debitResult)
+        {
+            response.SetField(39, "96");
+            return response;
+        }
+
         string rrn =
             DateTime.Now.ToString("yyMMddHHmmss");
 
@@ -88,8 +153,8 @@ public class MessageRouter
                 MTI = request.MTI,
                 ProcessingCode = request.GetField(3),
                 Amount = request.GetField(4),
-                Stan = request.GetField(11),
-                TerminalId = request.GetField(41),
+                Stan = stan,
+                TerminalId = terminalId,
                 ResponseCode = "00",
                 Rrn = rrn,
                 AuthCode = authCode
@@ -99,9 +164,7 @@ public class MessageRouter
             $"Transaction Count : {_transactionRepository.Count()}");
 
         response.SetField(37, rrn);
-
         response.SetField(38, authCode);
-
         response.SetField(39, "00");
 
         return response;
@@ -153,11 +216,18 @@ public class MessageRouter
         int transactionCount =
             _transactionRepository.SettlementCount();
 
+        decimal totalAmount =
+            _transactionRepository.SettlementAmount();
+
         response.SetField(39, "00");
 
         response.SetField(
             62,
             transactionCount.ToString());
+
+        response.SetField(
+            63,
+            totalAmount.ToString("0"));
 
         return response;
     }
@@ -175,6 +245,47 @@ public class MessageRouter
         }
 
         response.SetField(39, "00");
+
+        return response;
+    }
+    private IsoMessage Build0610(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0610";
+
+        if (!request.HasField(11))
+        {
+            response.SetField(39, "12");
+            return response;
+        }
+
+        string stan =
+            request.GetField(11)!;
+
+        var trx =
+            _transactionRepository.GetByStan(stan);
+
+        if (trx == null)
+        {
+            response.SetField(39, "25");
+            return response;
+        }
+
+        response.SetField(11, trx.Stan!);
+
+        if (!string.IsNullOrEmpty(trx.Amount))
+            response.SetField(4, trx.Amount);
+
+        if (!string.IsNullOrEmpty(trx.Rrn))
+            response.SetField(37, trx.Rrn);
+
+        if (!string.IsNullOrEmpty(trx.AuthCode))
+            response.SetField(38, trx.AuthCode);
+
+        response.SetField(
+            39,
+            trx.ResponseCode ?? "00");
 
         return response;
     }

@@ -53,10 +53,46 @@ public class TransactionRepository
 
         return true;
     }
-    public decimal SettlementAmount()
+    public int SettlementCount()
     {
         return _db.Transactions
+            .Count(x => !x.IsReversed);
+    }
+    public decimal SettlementAmount()
+    {
+        decimal total = 0;
+
+        var transactions = _db.Transactions
             .Where(x => !x.IsReversed)
-            .Sum(x => decimal.Parse(x.Amount ?? "0"));
+            .ToList();
+
+        foreach (var trx in transactions)
+        {
+            if (decimal.TryParse(
+                trx.Amount,
+                out decimal amount))
+            {
+                total += amount;
+            }
+        }
+
+        return total;
+    }
+    public Transaction? GetByStan(string stan)
+    {
+        return _db.Transactions
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault(x => x.Stan == stan);
+    }
+    public List<Transaction> GetAll()
+    {
+        return _db.Transactions
+            .OrderByDescending(x => x.Id)
+            .ToList();
+    }
+    public bool ExistsByStan(string stan)
+    {
+        return _db.Transactions
+            .Any(x => x.Stan == stan && !x.IsReversed);
     }
 }

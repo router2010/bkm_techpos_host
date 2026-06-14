@@ -1,15 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TechPosHost.Data;
 using TechPosHost.Network;
 using TechPosHost.Repository;
 using TechPosHost.Routing;
 
-
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -22,17 +18,33 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<TerminalRepository>();
 builder.Services.AddScoped<TransactionRepository>();
 builder.Services.AddScoped<MessageRouter>();
+builder.Services.AddScoped<IsoLogRepository>();
+builder.Services.AddScoped<CardRepository>();
 
-var host = builder.Build();
+builder.Services.AddControllers();
 
-using var scope = host.Services.CreateScope();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-var router =
-    scope.ServiceProvider.GetRequiredService<MessageRouter>();
+var app = builder.Build();
 
-var server =
-    new TcpServer(23232, router);
+app.UseSwagger();
+app.UseSwaggerUI();
 
-Console.WriteLine("TechPosHost Started");
+app.MapControllers();
 
-await server.StartAsync();
+using var scope = app.Services.CreateScope();
+
+var router = scope.ServiceProvider.GetRequiredService<MessageRouter>();
+
+var isoLogRepository = scope.ServiceProvider.GetRequiredService<IsoLogRepository>();
+
+var server = new TcpServer(23232, router, isoLogRepository);
+
+_ = Task.Run(async () =>
+{
+    Console.WriteLine("TechPosHost Started");
+    await server.StartAsync();
+});
+
+app.Run();

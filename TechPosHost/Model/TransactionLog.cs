@@ -3,12 +3,12 @@
 public class TransactionLog
 {
     public DateTime CreatedAt { get; set; }
-
+    public string? Pan { get; set; }
     public string MTI { get; set; } = "";
 
     public string? ProcessingCode { get; set; }
 
-    public string? Amount { get; set; }
+    public decimal Amount { get; set; }
 
     public string? Stan { get; set; }
 
@@ -18,4 +18,5 @@ public class TransactionLog
     public string? Rrn { get; set; }
 
     public string? AuthCode { get; set; }
+    public string? TransactionType { get; set; }
 }

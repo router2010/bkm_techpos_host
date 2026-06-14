@@ -4,7 +4,7 @@ public class TransactionInquiryDto
 {
     public string? Stan { get; set; }
 
-    public string? Amount { get; set; }
+    public decimal Amount { get; set; }
 
     public string? Rrn { get; set; }
 

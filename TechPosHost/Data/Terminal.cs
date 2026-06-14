@@ -6,7 +6,9 @@ public class Terminal
 
     public string TerminalId { get; set; } = "";
 
-    public string? MerchantId { get; set; }
-
     public bool IsActive { get; set; }
+
+    public int? MerchantId { get; set; }
+
+    public Merchant? Merchant { get; set; }
 }

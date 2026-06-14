@@ -21,10 +21,12 @@ public class MessageRouter
         {
             case "0800":
                 return Build0810();
-
             case "0200":
                 return Build0210(request);
-
+            case "0202":
+                return Build0212(request);
+            case "0220":
+                return Build0230(request);
             case "0420":
                 return Build0430(request);
             case "0500":
@@ -152,11 +154,13 @@ public class MessageRouter
                 CreatedAt = DateTime.Now,
                 MTI = request.MTI,
                 ProcessingCode = request.GetField(3),
-                Amount = request.GetField(4),
+                Amount = decimal.Parse(request.GetField(4) ?? "0"),
                 Stan = stan,
                 TerminalId = terminalId,
+                Pan = pan,
                 ResponseCode = "00",
                 Rrn = rrn,
+                TransactionType = "SALE",
                 AuthCode = authCode
             });
 
@@ -165,6 +169,120 @@ public class MessageRouter
 
         response.SetField(37, rrn);
         response.SetField(38, authCode);
+        response.SetField(39, "00");
+
+        return response;
+    }
+    private IsoMessage Build0212(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0212";
+
+        if (request.HasField(11))
+        {
+            response.SetField(
+                11,
+                request.GetField(11)!);
+        }
+
+        if (!request.HasField(37))
+        {
+            response.SetField(39, "12");
+            return response;
+        }
+
+        string rrn =
+            request.GetField(37)!;
+
+        var trx =
+            _transactionRepository.GetByRrn(rrn);
+
+        if (trx == null)
+        {
+            response.SetField(39, "25");
+            return response;
+        }
+
+        if (!string.IsNullOrEmpty(trx.Pan))
+        {
+            _cardRepository.Credit(
+                trx.Pan,
+                trx.Amount);
+        }
+
+        _transactionRepository.Void(trx);
+
+        response.SetField(39, "00");
+
+        return response;
+    }
+    private IsoMessage Build0230(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0230";
+
+        if (request.HasField(11))
+        {
+            response.SetField(
+                11,
+                request.GetField(11)!);
+        }
+
+        if (!request.HasField(2))
+        {
+            response.SetField(39, "14");
+            return response;
+        }
+
+        string pan =
+            request.GetField(2)!;
+
+        decimal amount =
+            decimal.Parse(
+                request.GetField(4) ?? "0");
+
+        bool credited =
+            _cardRepository.Credit(
+                pan,
+                amount);
+
+        if (!credited)
+        {
+            response.SetField(39, "14");
+            return response;
+        }
+
+        string rrn =
+            DateTime.Now.ToString(
+                "yyMMddHHmmss");
+
+        string authCode =
+            Random.Shared.Next(
+                100000,
+                999999).ToString();
+
+        _transactionRepository.Add(
+            new TransactionLog
+            {
+                CreatedAt = DateTime.Now,
+                MTI = request.MTI,
+                ProcessingCode = request.GetField(3),
+                Amount = amount,
+                Stan = request.GetField(11),
+                TerminalId = request.GetField(41),
+                ResponseCode = "00",
+                Rrn = rrn,
+                TransactionType = "REFUND",
+                AuthCode = authCode,
+                Pan = pan
+            });
+
+        response.SetField(37, rrn);
+
+        response.SetField(38, authCode);
+
         response.SetField(39, "00");
 
         return response;
@@ -191,12 +309,25 @@ public class MessageRouter
         string stan =
             request.GetField(11)!;
 
-        bool reversed =
+        var trx =
             _transactionRepository.Reverse(stan);
 
-        response.SetField(
-            39,
-            reversed ? "00" : "25");
+        if (trx == null)
+        {
+            response.SetField(39, "25");
+            return response;
+        }
+
+        decimal amount = trx.Amount;
+
+        if (!string.IsNullOrEmpty(trx.Pan))
+        {
+            _cardRepository.Credit(
+                trx.Pan,
+                amount);
+        }
+
+        response.SetField(39, "00");
 
         return response;
     }
@@ -228,6 +359,8 @@ public class MessageRouter
         response.SetField(
             63,
             totalAmount.ToString("0"));
+
+        _transactionRepository.CloseBatch();
 
         return response;
     }
@@ -273,9 +406,10 @@ public class MessageRouter
         }
 
         response.SetField(11, trx.Stan!);
-
-        if (!string.IsNullOrEmpty(trx.Amount))
-            response.SetField(4, trx.Amount);
+        if (trx.Amount > 0)
+        {
+            response.SetField(4,trx.Amount.ToString("0.00"));
+        }
 
         if (!string.IsNullOrEmpty(trx.Rrn))
             response.SetField(37, trx.Rrn);

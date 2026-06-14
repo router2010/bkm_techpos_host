@@ -20,6 +20,7 @@ builder.Services.AddScoped<TransactionRepository>();
 builder.Services.AddScoped<MessageRouter>();
 builder.Services.AddScoped<IsoLogRepository>();
 builder.Services.AddScoped<CardRepository>();
+builder.Services.AddScoped<MerchantRepository>();
 
 builder.Services.AddControllers();
 

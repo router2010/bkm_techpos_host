@@ -58,15 +58,20 @@ public class CardRepository
         return true;
     }
 
-    public void Credit(string pan, decimal amount)
+    public bool Credit(string pan, decimal amount)
     {
         var card = Get(pan);
 
         if (card == null)
-            return;
+            return false;
+
+        if (!card.IsActive)
+            return false;
 
         card.Balance += amount;
 
         _db.SaveChanges();
+
+        return true;
     }
 }

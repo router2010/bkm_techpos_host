@@ -1,4 +1,5 @@
 ﻿using TechPosHost.Data;
+using TechPosHost.Dto;
 using TechPosHost.Models;
 
 namespace TechPosHost.Repository;
@@ -11,7 +12,89 @@ public class TransactionRepository
     {
         _db = db;
     }
+    public DailyReportDto DailyReport()
+    {
+        return new DailyReportDto
+        {
+            SaleCount =
+                _db.Transactions.Count(x =>
+                    x.TransactionType == "SALE" &&
+                    !x.IsVoided),
 
+            SaleAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.TransactionType == "SALE" &&
+                        !x.IsVoided)
+                    .Sum(x => x.Amount),
+
+            RefundCount =
+                _db.Transactions.Count(x =>
+                    x.TransactionType == "REFUND"),
+
+            RefundAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.TransactionType == "REFUND")
+                    .Sum(x => x.Amount),
+
+            VoidCount =
+                _db.Transactions.Count(x =>
+                    x.IsVoided),
+
+            VoidAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.IsVoided)
+                    .Sum(x => x.Amount)
+        };
+    }
+    public TerminalReportDto TerminalReport(
+    string terminalId)
+    {
+        return new TerminalReportDto
+        {
+            TerminalId = terminalId,
+
+            SaleCount =
+                _db.Transactions.Count(x =>
+                    x.TerminalId == terminalId &&
+                    x.TransactionType == "SALE" &&
+                    !x.IsVoided),
+
+            SaleAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.TerminalId == terminalId &&
+                        x.TransactionType == "SALE" &&
+                        !x.IsVoided)
+                    .Sum(x => x.Amount),
+
+            RefundCount =
+                _db.Transactions.Count(x =>
+                    x.TerminalId == terminalId &&
+                    x.TransactionType == "REFUND"),
+
+            RefundAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.TerminalId == terminalId &&
+                        x.TransactionType == "REFUND")
+                    .Sum(x => x.Amount),
+
+            VoidCount =
+                _db.Transactions.Count(x =>
+                    x.TerminalId == terminalId &&
+                    x.IsVoided),
+
+            VoidAmount =
+                _db.Transactions
+                    .Where(x =>
+                        x.TerminalId == terminalId &&
+                        x.IsVoided)
+                    .Sum(x => x.Amount)
+        };
+    }
     public void Add(TransactionLog log)
     {
         _db.Transactions.Add(
@@ -23,6 +106,7 @@ public class TransactionRepository
                 Amount = log.Amount,
                 Stan = log.Stan,
                 TerminalId = log.TerminalId,
+                Pan = log.Pan,
                 ResponseCode = log.ResponseCode,
                 Rrn = log.Rrn,
                 AuthCode = log.AuthCode
@@ -36,7 +120,7 @@ public class TransactionRepository
         return _db.Transactions.Count();
     }
 
-    public bool Reverse(string stan)
+    public Transaction? Reverse(string stan)
     {
         var trx = _db.Transactions
             .OrderByDescending(x => x.Id)
@@ -45,44 +129,46 @@ public class TransactionRepository
                 !x.IsReversed);
 
         if (trx == null)
-            return false;
+            return null;
 
         trx.IsReversed = true;
 
         _db.SaveChanges();
 
-        return true;
+        return trx;
     }
     public int SettlementCount()
     {
         return _db.Transactions
-            .Count(x => !x.IsReversed);
+            .Count(x =>
+                !x.IsReversed &&
+                !x.IsVoided &&
+                !x.IsSettled);
     }
+
     public decimal SettlementAmount()
     {
-        decimal total = 0;
-
-        var transactions = _db.Transactions
-            .Where(x => !x.IsReversed)
-            .ToList();
-
-        foreach (var trx in transactions)
-        {
-            if (decimal.TryParse(
-                trx.Amount,
-                out decimal amount))
-            {
-                total += amount;
-            }
-        }
-
-        return total;
+        return _db.Transactions
+            .Where(x =>
+                !x.IsReversed &&
+                !x.IsVoided &&
+                !x.IsSettled)
+            .Sum(x => x.Amount);
     }
     public Transaction? GetByStan(string stan)
     {
         return _db.Transactions
             .OrderByDescending(x => x.Id)
-            .FirstOrDefault(x => x.Stan == stan);
+            .FirstOrDefault(x =>
+                x.Stan == stan &&
+                !x.IsVoided);
+    }
+    public void Void(Transaction trx)
+    {
+        trx.IsVoided = true;
+        trx.VoidedAt = DateTime.Now;
+
+        _db.SaveChanges();
     }
     public List<Transaction> GetAll()
     {
@@ -94,5 +180,30 @@ public class TransactionRepository
     {
         return _db.Transactions
             .Any(x => x.Stan == stan && !x.IsReversed);
+    }
+    public void CloseBatch()
+    {
+    var transactions =
+        _db.Transactions
+            .Where(x =>
+                !x.IsReversed &&
+                !x.IsSettled)
+            .ToList();
+
+    foreach (var trx in transactions)
+    {
+        trx.IsSettled = true;
+        trx.SettledAt = DateTime.Now;
+    }
+
+    _db.SaveChanges();
+    }
+    public Transaction? GetByRrn(string rrn)
+    {
+        return _db.Transactions
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault(x =>
+                x.Rrn == rrn &&
+                !x.IsVoided);
     }
 }

@@ -9,28 +9,36 @@ namespace TechPosHost.Controllers;
 [Route("api/[controller]")]
 public class TerminalsController : ControllerBase
 {
-    private readonly TerminalRepository _repository;
+    private readonly TerminalRepository _terminalRepository;
+    private readonly TransactionRepository _transactionRepository;
 
-    public TerminalsController(
-        TerminalRepository repository)
+    public TerminalsController(TerminalRepository repository, TransactionRepository transactionRepository)
     {
-        _repository = repository;
+        _terminalRepository = repository;
+        _transactionRepository = transactionRepository;
     }
-
+    [HttpGet("{terminalId}/report")]
+    public IActionResult Report(
+    string terminalId)
+    {
+        return Ok(
+            _transactionRepository
+                .TerminalReport(terminalId));
+    }
     [HttpGet]
     public IActionResult GetAll()
     {
-        return Ok(_repository.GetAll());
+        return Ok(_terminalRepository.GetAll());
     }
 
     [HttpPost]
     public IActionResult Create(
         TerminalDto dto)
     {
-        if (_repository.Get(dto.TerminalId) != null)
+        if (_terminalRepository.Get(dto.TerminalId) != null)
             return BadRequest("Terminal already exists.");
 
-        _repository.Add(
+        _terminalRepository.Add(
             new Terminal
             {
                 TerminalId = dto.TerminalId,
@@ -44,7 +52,7 @@ public class TerminalsController : ControllerBase
     public IActionResult Enable(
         string terminalId)
     {
-        if (!_repository.SetActive(terminalId, true))
+        if (!_terminalRepository.SetActive(terminalId, true))
             return NotFound();
 
         return Ok();
@@ -54,7 +62,7 @@ public class TerminalsController : ControllerBase
     public IActionResult Disable(
         string terminalId)
     {
-        if (!_repository.SetActive(terminalId, false))
+        if (!_terminalRepository.SetActive(terminalId, false))
             return NotFound();
 
         return Ok();

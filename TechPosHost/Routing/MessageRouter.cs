@@ -1,6 +1,7 @@
 ﻿using TechPosHost.Iso8583;
 using TechPosHost.Models;
 using TechPosHost.Repository;
+using TechPosHost.Security;
 namespace TechPosHost.Routing;
 
 public class MessageRouter
@@ -8,19 +9,59 @@ public class MessageRouter
     private readonly TerminalRepository _terminalRepository;
     private readonly TransactionRepository _transactionRepository;
     private readonly CardRepository _cardRepository;
-    public MessageRouter(TerminalRepository terminalRepository, TransactionRepository transactionRepository,
-    CardRepository cardRepository)
+    private readonly MacService _macService;
+    private readonly TerminalKeyRepository _terminalKeyRepository;
+    private readonly KeyService _keyService;
+    private readonly PinBlockService _pinBlockService;
+    private readonly IsoBuilder _isoBuilder;
+    public MessageRouter(
+        TerminalRepository terminalRepository,
+        TransactionRepository transactionRepository,
+        CardRepository cardRepository,
+        MacService macService,
+        TerminalKeyRepository terminalKeyRepository,
+        KeyService keyService,
+        PinBlockService pinBlockService,
+        IsoBuilder isoBuilder)
     {
         _terminalRepository = terminalRepository;
         _transactionRepository = transactionRepository;
         _cardRepository = cardRepository;
+        _macService = macService;
+        _terminalKeyRepository = terminalKeyRepository;
+        _keyService = keyService;
+        _pinBlockService = pinBlockService;
+        _isoBuilder = isoBuilder;
     }
     public IsoMessage Route(IsoMessage request)
     {
+        if (request.HasField(64))
+        {
+            Console.WriteLine(
+                $"MAC RECEIVED = {request.GetField(64)}");
+
+            if (!VerifyMac(request))
+            {
+                var response = new IsoMessage();
+
+                response.MTI = request.MTI switch
+                {
+                    "0200" => "0210",
+                    "0202" => "0212",
+                    "0220" => "0230",
+                    "0420" => "0430",
+                    "0500" => "0510",
+                    _ => "0810"
+                };
+
+                response.SetField(39, "A0");
+
+                return response;
+            }
+        }
+
         switch (request.MTI)
         {
-            case "0800":
-                return Build0810();
             case "0200":
                 return Build0210(request);
             case "0202":
@@ -31,25 +72,15 @@ public class MessageRouter
                 return Build0430(request);
             case "0500":
                 return Build0510(request);
-
             case "0820":
                 return Build0830(request);
             case "0600":
                 return Build0610(request);
-
+            case "0800":
+                return Build0810(request);
             default:
                 return BuildError();
         }
-    }
-
-    private IsoMessage Build0810()
-    {
-        var response = new IsoMessage();
-
-        response.MTI = "0810";
-        response.SetField(39, "00");
-
-        return response;
     }
     private IsoMessage Build0210(IsoMessage request)
     {
@@ -119,6 +150,23 @@ public class MessageRouter
             return response;
         }
 
+        if (request.HasField(52))
+        {
+            string pinBlock =
+                request.GetField(52)!;
+
+            bool valid =
+                _pinBlockService.Verify(
+                    pinBlock,
+                    "1234");
+
+            if (!valid)
+            {
+                response.SetField(39, "55");
+                return response;
+            }
+        }
+
         decimal amount =
             decimal.Parse(
                 request.GetField(4) ?? "0");
@@ -161,7 +209,8 @@ public class MessageRouter
                 ResponseCode = "00",
                 Rrn = rrn,
                 TransactionType = "SALE",
-                AuthCode = authCode
+                AuthCode = authCode,
+                PinBlock = request.GetField(52)
             });
 
         Console.WriteLine(
@@ -364,23 +413,6 @@ public class MessageRouter
 
         return response;
     }
-    private IsoMessage Build0830(IsoMessage request)
-    {
-        var response = new IsoMessage();
-
-        response.MTI = "0830";
-
-        if (request.HasField(11))
-        {
-            response.SetField(
-                11,
-                request.GetField(11)!);
-        }
-
-        response.SetField(39, "00");
-
-        return response;
-    }
     private IsoMessage Build0610(IsoMessage request)
     {
         var response = new IsoMessage();
@@ -422,6 +454,108 @@ public class MessageRouter
             trx.ResponseCode ?? "00");
 
         return response;
+    }
+    private IsoMessage Build0810(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0810";
+
+        if (request.HasField(41))
+        {
+            string terminalId =
+                request.GetField(41)!;
+
+            string tmk =
+                _keyService.GenerateKey();
+
+            string tpk =
+                _keyService.GenerateKey();
+
+            string tak =
+                _keyService.GenerateKey();
+
+            _terminalKeyRepository.Save(
+                terminalId,
+                tmk,
+                tpk,
+                tak);
+
+            response.SetField(62, tmk);
+            response.SetField(63, tpk);
+            response.SetField(64, tak);
+        }
+
+        response.SetField(39, "00");
+
+        return response;
+    }
+    private IsoMessage Build0830(IsoMessage request)
+    {
+        var response = new IsoMessage();
+
+        response.MTI = "0830";
+
+        if (request.HasField(41))
+        {
+            string terminalId =
+                request.GetField(41)!;
+
+            string tmk =
+                _keyService.GenerateKey();
+
+            string tpk =
+                _keyService.GenerateKey();
+
+            string tak =
+                _keyService.GenerateKey();
+
+            _terminalKeyRepository.Save(
+                terminalId,
+                tmk,
+                tpk,
+                tak);
+
+            response.SetField(62, tmk);
+            response.SetField(63, tpk);
+            response.SetField(64, tak);
+        }
+
+        response.SetField(39, "00");
+
+        return response;
+    }
+    private bool VerifyMac(IsoMessage request)
+    {
+        if (!request.HasField(64))
+        {
+            return true;
+        }
+
+        string receivedMac =
+            request.GetField(64)!;
+
+        string originalMac =
+            receivedMac;
+
+        request.Fields.Remove(64);
+
+        string plainText =
+            _isoBuilder.BuildBitmapMessage(request);
+
+        bool result =
+            _macService.Verify(
+                plainText,
+                originalMac);
+
+        request.SetField(
+            64,
+            originalMac);
+
+        Console.WriteLine(
+            $"MAC VERIFY = {result}");
+
+        return result;
     }
     private IsoMessage BuildError()
     {

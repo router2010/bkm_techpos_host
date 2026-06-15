@@ -19,4 +19,5 @@ public class TransactionLog
 
     public string? AuthCode { get; set; }
     public string? TransactionType { get; set; }
+    public string? PinBlock { get; set; }
 }

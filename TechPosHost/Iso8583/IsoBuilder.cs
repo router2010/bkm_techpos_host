@@ -1,5 +1,6 @@
-﻿using System.Text;
-using System.Linq;
+﻿using System.Linq;
+using System.Text;
+using TechPosHost.Security;
 
 namespace TechPosHost.Iso8583;
 
@@ -40,5 +41,31 @@ public class IsoBuilder
         }
 
         return sb.ToString();
+    }
+
+    public string BuildBitmapMessage(
+        IsoMessage message,
+        MacService macService)
+    {
+        var temp = new IsoMessage();
+
+        temp.MTI = message.MTI;
+
+        foreach (var field in message.Fields)
+        {
+            temp.SetField(
+                field.Key,
+                field.Value);
+        }
+
+        string plainText =
+            BuildBitmapMessage(temp);
+
+        string mac =
+            macService.Calculate(plainText);
+
+        temp.SetField(64, mac);
+
+        return BuildBitmapMessage(temp);
     }
 }

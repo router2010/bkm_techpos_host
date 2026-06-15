@@ -4,6 +4,8 @@ public class IsoMessage
 {
     public string MTI { get; set; } = "";
 
+    public string RawMessage { get; set; } = "";
+
     public Dictionary<int, string> Fields { get; set; }
         = new();
 

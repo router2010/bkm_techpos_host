@@ -21,6 +21,8 @@ public class IsoParser
     {
         var message = new IsoMessage();
 
+        message.RawMessage = text;
+
         string[] parts = text.Split('|');
 
         if (parts.Length > 0)
@@ -51,19 +53,38 @@ public class IsoParser
     {
         var message = new IsoMessage();
 
+        message.RawMessage = text;
+
         string[] lines =
             text.Replace("\r", "")
                 .Split('\n',
                     StringSplitOptions.RemoveEmptyEntries);
 
-        if (lines.Length == 0)
+        if (lines.Length < 2)
         {
             return message;
         }
 
         message.MTI = lines[0];
 
-        // Bitmap parsing sonraki adımda eklenecek
+        string bitmap = lines[1];
+
+        var fields =
+            BitmapHelper.ParseBitmap(bitmap);
+
+        int lineIndex = 2;
+
+        foreach (var fieldNo in fields)
+        {
+            if (lineIndex >= lines.Length)
+                break;
+
+            message.SetField(
+                fieldNo,
+                lines[lineIndex]);
+
+            lineIndex++;
+        }
 
         return message;
     }

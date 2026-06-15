@@ -30,4 +30,24 @@ public static class BitmapHelper
 
         return hex;
     }
+    public static List<int> ParseBitmap(string bitmap)
+    {
+        var result = new List<int>();
+
+        ulong value =
+            Convert.ToUInt64(bitmap, 16);
+
+        for (int i = 1; i <= 64; i++)
+        {
+            ulong mask =
+                1UL << (64 - i);
+
+            if ((value & mask) != 0)
+            {
+                result.Add(i);
+            }
+        }
+
+        return result;
+    }
 }
